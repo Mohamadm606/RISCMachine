@@ -32,4 +32,25 @@ int main(int argc,char* argv[])
         memory.words[i] = bof_read_word(bf);
         printf("%d ",memory.words[i]);
     }
+
+
+
+
+    switch(instruction_type(instruction)){
+        case(reg_instr_type):
+            switch(instruction.reg.func)
+                case(1):
+                    break;
+            break;
+        case(syscall_instr_type):
+            break;
+        case(error_instr_type):
+            break;
+        case(immed_instr_type):
+            break;
+        case(jump_instr_type):
+            break;
+
+        
+    };
 }
