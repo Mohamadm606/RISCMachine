@@ -35,22 +35,103 @@ int main(int argc,char* argv[])
 
 
 
+    /*
+    To do: global variable PC implementation
+           Runtime Stack implemntation
+    
+    In regard to register access and use. 
+        There are macros set in place already. They provide exra clarity and will be helpful once
+        we start debugging i think. 
+        regname.c and .h have basic info but should probably be researched more.
 
+
+
+
+    Some notes on switch cluster
+    Avoid using ints. Find built in macros in instructions.c for each operator. 
+
+    */
     switch(instruction_type(instruction)){
         case(reg_instr_type):
-            switch(instruction.reg.func)
-                case(1):
+            switch(instruction.reg.func){
+                case(ADD_F):
                     break;
+                case(SUB_F):
+                    break;
+                case(MUL_F):
+                    break;
+                case(DIV_F):
+                    break;
+                case(MFHI_F):
+                    break;
+                case(MFLO_F):
+                    break;
+                case(AND_F):
+                    break;
+                case(BOR_F):
+                    break;
+                case(NOR_F):
+                    break;
+                case(XOR_F):
+                    break;
+                case(SLL_F):
+                    break;
+                case(SRL_F):
+                    break;
+                case(JR_F):
+                    break;
+                case(SYSCALL_F):
+                    break;
+            }
             break;
-        case(syscall_instr_type):
+        case(syscall_instr_type)://may need to go into Reg. but Instruction.c funtion (instruction_type) gives its own return??
             break;
-        case(error_instr_type):
+        case(immed_instr_type)://use for inner switchinstruction_mnemonic 
+            switch(instruction.immed.op){
+                case(ADDI_O):
+                    break;
+                case(ANDI_O):
+                    break;
+                case(BORI_O):
+                    break;
+                case(XORI_O):
+                    break;
+                case(BEQ_O):
+                    break;
+                case(BGEZ_O):
+                    break;
+                case(BGTZ_O):
+                    break;
+                case(BLEZ_O):
+                    break;    
+                case(BLTZ_O):
+                    break;
+                case(BNE_O):
+                    break;
+                case(LBU_O):
+                    break;
+                case(LW_O):
+                    break;
+                case(SB_O):
+                    break;
+                case(SW_O):
+                    break;
+                
+
             break;
-        case(immed_instr_type):
+            }
             break;
         case(jump_instr_type):
+            switch(instruction.jump.op)
+            {
+                case(2)://JUMP
+                    break;
+                case(3)://JUMP AND LINK
+                    break;
+            }
             break;
-
+        case(error_instr_type):
+                    break;
         
     };
 }
