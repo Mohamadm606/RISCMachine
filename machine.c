@@ -4,7 +4,9 @@
 #define MEMORY_SIZE_IN_BYTES (65536 - BYTES_PER_WORD)
 #define MEMORY_SIZE_IN_WORDS (MEMORY_SIZE_IN_BYTES / BYTES_PER_WORD)
 int GPR[31];
-
+int LO;
+int HI;
+int PC;
 static union mem_u {
      byte_type bytes[MEMORY_SIZE_IN_BYTES];
      word_type words[MEMORY_SIZE_IN_WORDS];
@@ -51,20 +53,32 @@ int main(int argc,char* argv[])
     Avoid using ints. Find built in macros in instructions.c for each operator. 
 
     */
+
+   // reg type instruction format
+   // op: 6 rs: 5 rt: 5 rd: 5 shift: 5 func: 6
     switch(instruction_type(instruction)){
         case(reg_instr_type):
             switch(instruction.reg.func){
                 case(ADD_F):
+                    GPR[instruction.reg.rd] = GPR[instruction.reg.rs] + GPR[instruction.reg.rt];
                     break;
                 case(SUB_F):
+                    GPR[instruction.reg.rd] = GPR[instruction.reg.rs] - GPR[instruction.reg.rt];
                     break;
                 case(MUL_F):
+                    long mulNum = GPR[instruction.reg.rs] * GPR[instruction.reg.rt];
+                    HI = mulNum >> 32;
+                    LO = mulNum << 32; 
                     break;
                 case(DIV_F):
+                    HI = GPR[instruction.reg.rs] % GPR[instruction.reg.rt];
+                    LO = GPR[instruction.reg.rs] / GPR[instruction.reg.rt];
                     break;
                 case(MFHI_F):
+                    GPR[instruction.reg.rd] = HI;
                     break;
                 case(MFLO_F):
+                    GPR[instruction.reg.rd] = LO;
                     break;
                 case(AND_F):
                     break;
