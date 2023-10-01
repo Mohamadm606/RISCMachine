@@ -23,8 +23,6 @@ int main(int argc,char* argv[])
 
     bin_instr_t instruction;
 
-    //union mem_u memory;
-    printf("# of instructions%d\n",header.text_length);
 
     for(int i = 0; i < (header.text_length/4);i++){
         instruction = instruction_read(bf);
@@ -55,12 +53,16 @@ int main(int argc,char* argv[])
     */
 
     int flag = 1;
-    int length = header.text_length / 4;
+    int length = header.text_length;
     while (PC < length)
     {   
-        instruction = memory.instrs[PC];
-        //print instructions
+        //printf("PC = %d Length is %d\n",PC,length);
+        instruction = memory.instrs[PC/4];
         instr_type temp = instruction_type(instruction);
+
+        //print instructions
+        print_instr(temp,instruction);
+
         PC += 4;
         switch(temp){
             case(reg_instr_type):
@@ -108,7 +110,7 @@ int main(int argc,char* argv[])
                         PC = GPR[instruction.reg.rs];
                         break;
                 }
-            case(syscall_instr_type)://may need to go into Reg. but Instruction.c funtion (instruction_type) gives its own return??
+            case(syscall_instr_type):
                 switch(instruction.syscall.code) { 
                     case(exit_sc):
                         exit(0);
@@ -207,12 +209,27 @@ int main(int argc,char* argv[])
 
 void print_instr(instr_type instr, bin_instr_t bin_Instr)
 {
-    if ((instr == syscall_instr_type) && (bin_Instr.syscall.code == exit_sc))
+    if(PC == 0)
+        fprintf(stdout,"Addr Instruction\n");
+    fprintf(stdout,"    ");
+    fprintf(stdout,"%d ",PC);
+    switch (instr)
     {
-
-        fprintf(stdout, "\t%d EXIT\n", &PC);
-        fprintf(stdout, " 1024: 0	...\n");
-        return;
+        case(reg_instr_type):
+            fprintf(stdout,"%s",instruction_func2name(bin_Instr));
+            break;
+        case(immed_instr_type):
+            fprintf(stdout,"%s",instruction_mnemonic(bin_Instr));
+            break;
+        case(jump_instr_type):
+            fprintf(stdout,"%s",instruction_mnemonic(bin_Instr));
+            break;
+        case(syscall_instr_type):
+            fprintf(stdout,"%s",instruction_syscall_mnemonic(bin_Instr.syscall.code));
+            break;
     }
-
+    if ((instr == syscall_instr_type) && (bin_Instr.syscall.code == exit_sc))
+        fprintf(stdout, "\n     1024: 0 ...");
+    fprintf(stdout,"\n");
+    return;
 }
