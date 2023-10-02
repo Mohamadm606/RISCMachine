@@ -3,6 +3,7 @@
 #include "bof.h"
 #include "instruction.h"
 #include "utilities.h"
+#include "regname.h"
 #define MEMORY_SIZE_IN_BYTES (65536 - BYTES_PER_WORD)
 #define MEMORY_SIZE_IN_WORDS (MEMORY_SIZE_IN_BYTES / BYTES_PER_WORD)
 int GPR[31];
@@ -52,10 +53,20 @@ int main(int argc,char* argv[])
 
     */
 
+   // re read manual for types of registers we should not let user write to
+
     int flag = 1;
     int length = header.text_length;
+    
+    fprintf(stdout,"Addr Instruction\n");
     while (PC < length)
     {   
+        // enforcing required register stuff
+        if (!enforce_invarients())
+            bail_with_error("uh oh");
+        
+        // PRINT FORMATING DOES NOT MATTER ONLY NEW LINE MUST BE CORRECT
+
         //printf("PC = %d Length is %d\n",PC,length);
         instruction = memory.instrs[PC/4];
         instr_type temp = instruction_type(instruction);
@@ -202,16 +213,21 @@ int main(int argc,char* argv[])
             case(error_instr_type):
                 bail_with_error("uh oh");
                 break;
-            
         };
     }
 }
 
 void print_instr(instr_type instr, bin_instr_t bin_Instr)
 {
-    if(PC == 0)
-        fprintf(stdout,"Addr Instruction\n");
-    fprintf(stdout,"    ");
+    if(PC < 10)
+        fpirntf(stdout, "   ");
+    else if (PC >= 10 && PC < 100)
+        fpirntf(stdout, "  ");
+    else if (PC >= 100 && PC < 1000)
+        fpirntf(stdout, " ");
+    else
+        fprintf(stdout, "");
+        
     fprintf(stdout,"%d ",PC);
     switch (instr)
     {
@@ -232,4 +248,46 @@ void print_instr(instr_type instr, bin_instr_t bin_Instr)
         fprintf(stdout, "\n     1024: 0 ...");
     fprintf(stdout,"\n");
     return;
+}
+
+void print_reg(instr_type instr, bin_instr_t bin_Instr) {
+    printf("\t%d\t", PC);
+
+    if (HI || LO)
+    {
+        printf("HI: %d\t LO: %d\n", HI, LO);
+    }
+    else
+        printf("\n");
+
+    for (int i = 0; i < NUM_REGISTERS; i++)
+    {
+        if (i % 6 == 0)
+            printf("\n");
+        
+        printf("GPR[%s]: %d\t", regname_get(i), GPR[i]);
+    }
+    
+    printf("\n");
+
+    // implement data and stack nums here and figure
+    // out what they are
+
+    // page 4 of manual
+    // numbers at bottom are $gp and $sp
+    // something about how the words are stored in mem
+
+    printf("==> addr:");
+
+    print_instr(instr, bin_Instr);
+}
+
+int enforce_invarients() {
+    if (PC % BYTES_PER_WORD != 0 || GPR[28] % BYTES_PER_WORD != 0 || GPR[29] % BYTES_PER_WORD != 0
+        || GPR[30] % BYTES_PER_WORD != 0 || 0 > GPR[28] || GPR[28] >= GPR[29] || GPR[29] > GPR[30]
+        || GPR[30] >= MEMORY_SIZE_IN_BYTES || 0 > PC || PC >= MEMORY_SIZE_IN_BYTES || GPR[0] != 0)
+        return 0;
+    else
+        return 1;
+
 }
