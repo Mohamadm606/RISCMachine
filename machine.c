@@ -6,10 +6,12 @@
 #include "regname.h"
 #define MEMORY_SIZE_IN_BYTES (65536 - BYTES_PER_WORD)
 #define MEMORY_SIZE_IN_WORDS (MEMORY_SIZE_IN_BYTES / BYTES_PER_WORD)
-int GPR[31];
+int GPR[32];
 long LO;
 long HI;
 int PC;
+FILE* myp;
+FILE* myo;
 
 static union mem_u {
      byte_type bytes[MEMORY_SIZE_IN_BYTES];
@@ -17,9 +19,9 @@ static union mem_u {
      bin_instr_t instrs[MEMORY_SIZE_IN_WORDS];
 }memory;
 
-void print_instr();
+void print_instr(FILE* file);
 void initialize(BOFHeader header);
-void print_data(BOFHeader header);
+void print_data(BOFHeader header, FILE* file);
 void print_stack(BOFHeader header);
 void print_reg();
 int enforce_invarients();
@@ -27,17 +29,22 @@ int main(int argc,char* argv[])
 {
     BOFFILE bf;
     
+    int dashp = 0;
     if (argc < 3)
+    {
         bf = bof_read_open(argv[1]);
+    }
     else
+    {
+        dashp = 1;
         bf = bof_read_open(argv[2]);
+    }
 
     BOFHeader header = bof_read_header(bf);
 
     initialize(header);
 
     bin_instr_t instruction;
-
 
     for(int i = 0; i < (header.text_length/4);i++){
         instruction = instruction_read(bf);
@@ -55,21 +62,36 @@ int main(int argc,char* argv[])
 
 
     int length = header.text_length;
+    if (dashp)
+    {
+        myp = fopen("out.myp", "w");
+        fprintf(myp,"Addr Instruction\n");
+
+        while (PC < length)
+        {
+            print_instr(myp);
+            PC+=4;
+        }
+        print_data(header, myp);
+        fclose(myp);
+
+        exit(0);
+    }
+    myo = fopen("out.myo", "w");
 
     fprintf(stdout,"Addr Instruction\n");
 
     while (PC < length)
     {
-        print_instr();
+        print_instr(stdout);
         PC+=4;
     }
-    print_data(header);
-    
+    print_data(header, stdout);
     PC = header.text_start_address;
 
 
     int flag = 1;
-
+    long mulNum = 0;
     while (1)
     {   
         // enforcing required register stuff
@@ -83,10 +105,10 @@ int main(int argc,char* argv[])
         if (flag)
         {
             print_reg();
-            print_data(header);
+            print_data(header, myo);
             print_stack(header);
-            fprintf(stdout,"==> addr:\t");
-            print_instr();
+            fprintf(myo,"==> addr:\t");
+            print_instr(myo);
         }
 
         PC += 4;
@@ -100,7 +122,7 @@ int main(int argc,char* argv[])
                         GPR[instruction.reg.rd] = GPR[instruction.reg.rs] - GPR[instruction.reg.rt];
                         break;
                     case(MUL_F):
-                        long mulNum = GPR[instruction.reg.rs] * GPR[instruction.reg.rt];
+                        mulNum = GPR[instruction.reg.rs] * GPR[instruction.reg.rt];
                         HI = (int) (mulNum >> 32);
                         mulNum = (mulNum << 32);
                         mulNum = (mulNum >> 32);
@@ -230,28 +252,30 @@ int main(int argc,char* argv[])
                 break;
         };
     }
+
+    fclose(myo);
 }
 void print_reg() {
-    fprintf(stdout, "\tPC: %d\t", PC);
+    fprintf(myo, "\tPC: %d\t", PC);
 
     if (HI || LO)
     {
-        fprintf(stdout, "HI: %d\t LO: %d\n",(int)HI, (int)LO);
+        fprintf(myo, "HI: %d\t LO: %d\n",(int)HI, (int)LO);
     }
     else
-        fprintf(stdout, "\n");
+        fprintf(myo, "\n");
 
-    fprintf(stdout, "\n");
+    fprintf(myo, "\n");
 
     for (int i = 0; i < NUM_REGISTERS; i++)
     {
         if (i % 6 == 0)
-            fprintf(stdout, "\n");
+            fprintf(myo, "\n");
         
-        fprintf(stdout, "GPR[%s]: %d\t", regname_get(i), GPR[i]);
+        fprintf(myo, "GPR[%s]: %d\t", regname_get(i), GPR[i]);
     }
     
-    fprintf(stdout, "\n");
+    fprintf(myo, "\n");
 }
 
 int enforce_invarients(){
@@ -263,116 +287,126 @@ int enforce_invarients(){
         return 1;
 
 }
-void print_instr()
+void print_instr(FILE* file)
 {
         bin_instr_t instruction = memory.instrs[PC/4];
-        fprintf(stdout,"%4d ",PC);
+        fprintf(file,"%4d ",PC);
         
         switch (instruction_type(instruction))
         {
            case(reg_instr_type):
-                fprintf(stdout,"%s",instruction_func2name(instruction));
+                fprintf(file,"%s",instruction_func2name(instruction));
                 switch(instruction.reg.func){
                     case(ADD_F): case(SUB_F): 
-                        fprintf(stdout," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
+                        fprintf(file," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
                         break;
                     case(MUL_F):
-                        fprintf(stdout," %s, %s",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt));
+                        fprintf(file," %s, %s",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt));
                         break;
                     case(DIV_F):
-                        fprintf(stdout," %s, %s",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt));
+                        fprintf(file," %s, %s",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt));
                         break;
                     case(MFHI_F):
-                        fprintf(stdout," %s",regname_get(instruction.reg.rd));
+                        fprintf(file," %s",regname_get(instruction.reg.rd));
                         break;
                     case(MFLO_F):
-                        fprintf(stdout," %s",regname_get(instruction.reg.rd));
+                        fprintf(file," %s",regname_get(instruction.reg.rd));
                         break;
                     case(AND_F):
-                        fprintf(stdout," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
+                        fprintf(file," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
                         break;
                     case(BOR_F):
-                        fprintf(stdout," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
+                        fprintf(file," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
                         break;
                     case(NOR_F):
-                        fprintf(stdout," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
+                        fprintf(file," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
                         break;
                     case(XOR_F):
-                        fprintf(stdout," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
+                        fprintf(file," %s, %s, %s ",regname_get(instruction.reg.rs),regname_get(instruction.reg.rt),regname_get(instruction.reg.rd));
                         break;
                     case(SLL_F):
-                        fprintf(stdout," %s, %s, %d ",regname_get(instruction.reg.rt),regname_get(instruction.reg.rd),instruction.reg.shift);
+                        fprintf(file," %s, %s, %d ",regname_get(instruction.reg.rt),regname_get(instruction.reg.rd),instruction.reg.shift);
                         break;
                     case(SRL_F):
-                        fprintf(stdout," %s, %s, %d ",regname_get(instruction.reg.rt),regname_get(instruction.reg.rd),instruction.reg.shift);
+                        fprintf(file," %s, %s, %d ",regname_get(instruction.reg.rt),regname_get(instruction.reg.rd),instruction.reg.shift);
                         break;
                     case(JR_F):
-                        fprintf(stdout," %s",regname_get(instruction.reg.rs));
+                        fprintf(file," %s",regname_get(instruction.reg.rs));
                         break;
                 }
                 break;
             case(syscall_instr_type):
-                fprintf(stdout,"%s",instruction_syscall_mnemonic(instruction.syscall.code));
+                fprintf(file,"%s",instruction_syscall_mnemonic(instruction.syscall.code));
                 break;
             case(immed_instr_type)://use for inner switchinstruction_mnemonic 
-                fprintf(stdout,"%s",instruction_mnemonic(instruction));
+                fprintf(file,"%s",instruction_mnemonic(instruction));
                 switch(instruction.immed.op){
                     case(ADDI_O):
-                        fprintf(stdout," %s, %s, %hd ",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),(short int)instruction.immed.immed);
+                        fprintf(file," %s, %s, %hd ",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),(short int)instruction.immed.immed);
                         break;
                    case ANDI_O: case BORI_O: case XORI_O:
-	                    fprintf(stdout, "%s, %s, 0x%hx",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),instruction.immed.immed);
+	                    fprintf(file, "%s, %s, 0x%hx",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),instruction.immed.immed);
 	                    break;
                     case(BEQ_O):
-                        fprintf(stdout," %s, %s, %d #offset is %+d bytes",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
+                        fprintf(file," %s, %s, %d #offset is %+d bytes",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
                         break;
                     case(BGEZ_O):
-                        fprintf(stdout," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
+                        fprintf(file," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
                         break;
                     case(BGTZ_O):
-                        fprintf(stdout," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
+                        fprintf(file," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
                         break;
                     case(BLEZ_O):
-                        fprintf(stdout," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
+                        fprintf(file," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
                         break;    
                     case(BLTZ_O):
-                        fprintf(stdout," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
+                        fprintf(file," %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
                         break;
                     case(BNE_O):
-                        fprintf(stdout," %s, %s, %d    #offset is +%d bytes",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
+                        fprintf(file," %s, %s, %d    #offset is +%d bytes",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),instruction.immed.immed,machine_types_formOffset(instruction.immed.immed));
                         break;
                    case LBU_O: case LW_O: case SB_O: case SW_O:
-	                    fprintf(stdout, " %s, %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),(short int) instruction.immed.immed,(short int)machine_types_formOffset(instruction.immed.immed));
+	                    fprintf(file, " %s, %s, %d    #offset is %+d bytes",regname_get(instruction.immed.rs),regname_get(instruction.immed.rt),(short int) instruction.immed.immed,(short int)machine_types_formOffset(instruction.immed.immed));
 	                    break;
                 }
                 break;
             case(jump_instr_type):
-                fprintf(stdout,"%s",instruction_mnemonic(instruction));
-                fprintf(stdout," %d # target is byte address %d",instruction.jump.addr,machine_types_formAddress(PC, instruction.jump.addr)); 
+                fprintf(file,"%s",instruction_mnemonic(instruction));
+                fprintf(file," %d # target is byte address %d",instruction.jump.addr,machine_types_formAddress(PC, instruction.jump.addr)); 
                 break;
             case(error_instr_type):
                 break;
         }
-        fprintf(stdout,"\n");
+        fprintf(file,"\n");
     return;
 }
 
 
-void print_data(BOFHeader header){
+void print_data(BOFHeader header, FILE* file){
     //fprintf(stdout,"      %d: %d",header.data_start_address,((header.data_length)+header.data_start_address));
+    int count = 0;
     for(int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=4)
-        fprintf(stdout,"\t  %d: %d",i,memory.words[i]);
-    fprintf(stdout," ...\n");
+    {
+        if (count % 5 == 0 && count != 0)
+            fprintf(file, "\n");
+        fprintf(file,"\t  %d: %d",i,memory.words[i]);
+        count++;
+    }
+    fprintf(file," ...\n");
 }
 
 
 void print_stack(BOFHeader)
 {
+    int count = 0;
     for(int i = GPR[SP];i <= GPR[FP]; i+=4)
     {
-        fprintf(stdout,"\t  %d: %d",i,memory.words[i]);
+        if (count % 5 == 0 && count != 0)
+            fprintf(myo, "\n");
+        fprintf(myo,"\t  %d: %d",i,memory.words[i]);
+        count++;
     } 
-    fprintf(stdout," ...\n");
+    fprintf(myo," ...\n");
 }
 
 
