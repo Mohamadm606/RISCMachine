@@ -11,7 +11,6 @@ long LO;
 long HI;
 int PC;
 FILE* myp;
-FILE* myo;
 
 static union mem_u {
      byte_type bytes[MEMORY_SIZE_IN_BYTES];
@@ -60,35 +59,33 @@ int main(int argc,char* argv[])
     // ./asm vm_test3.asm
     // ./vm vm_test3.bof
 
-
     int length = header.text_length;
     if (dashp)
     {
-        myp = fopen("out.myp", "w");
-        fprintf(myp,"Addr Instruction\n");
+        fprintf(stdout,"Addr Instruction\n");
 
         while (PC < length)
         {
-            print_instr(myp);
+            print_instr(stdout);
             PC+=4;
         }
-        print_data(header, myp);
-        fclose(myp);
+        print_data(header, stdout);
 
         exit(0);
     }
-    myo = fopen("out.myo", "w");
+    myp = fopen("out.myp", "w");
 
-    fprintf(stdout,"Addr Instruction\n");
+    fprintf(myp,"Addr Instruction\n");
 
     while (PC < length)
     {
-        print_instr(stdout);
+        print_instr(myp);
         PC+=4;
     }
-    print_data(header, stdout);
+    print_data(header, myp);
     PC = header.text_start_address;
 
+    fclose(myp);
 
     int flag = 1;
     long mulNum = 0;
@@ -105,10 +102,10 @@ int main(int argc,char* argv[])
         if (flag)
         {
             print_reg();
-            print_data(header, myo);
+            print_data(header, stdout);
             print_stack(header);
-            fprintf(myo,"==> addr:\t");
-            print_instr(myo);
+            fprintf(stdout,"==> addr:\t");
+            print_instr(stdout);
         }
 
         PC += 4;
@@ -171,6 +168,7 @@ int main(int argc,char* argv[])
                         break;
                     case(print_char_sc)://PCH
                         GPR[2] = fputc(GPR[4], stdout);
+                        fprintf(stdout, "= %d =", GPR[4]);
                         break;
                     case(read_char_sc)://RCH
                         GPR[4] = fgetc(stdin);
@@ -253,29 +251,28 @@ int main(int argc,char* argv[])
         };
     }
 
-    fclose(myo);
 }
 void print_reg() {
-    fprintf(myo, "\tPC: %d\t", PC);
+    fprintf(stdout, "\tPC: %d\t", PC);
 
     if (HI || LO)
     {
-        fprintf(myo, "HI: %d\t LO: %d\n",(int)HI, (int)LO);
+        fprintf(stdout, "HI: %d\t LO: %d\n",(int)HI, (int)LO);
     }
     else
-        fprintf(myo, "\n");
+        fprintf(stdout, "\n");
 
-    fprintf(myo, "\n");
+    fprintf(stdout, "\n");
 
     for (int i = 0; i < NUM_REGISTERS; i++)
     {
         if (i % 6 == 0)
-            fprintf(myo, "\n");
+            fprintf(stdout, "\n");
         
-        fprintf(myo, "GPR[%s]: %d\t", regname_get(i), GPR[i]);
+        fprintf(stdout, "GPR[%s]: %d\t", regname_get(i), GPR[i]);
     }
     
-    fprintf(myo, "\n");
+    fprintf(stdout, "\n");
 }
 
 int enforce_invarients(){
@@ -383,7 +380,6 @@ void print_instr(FILE* file)
 
 
 void print_data(BOFHeader header, FILE* file){
-    //fprintf(stdout,"      %d: %d",header.data_start_address,((header.data_length)+header.data_start_address));
     int count = 0;
     for(int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=4)
     {
@@ -402,11 +398,11 @@ void print_stack(BOFHeader)
     for(int i = GPR[SP];i <= GPR[FP]; i+=4)
     {
         if (count % 5 == 0 && count != 0)
-            fprintf(myo, "\n");
-        fprintf(myo,"\t  %d: %d",i,memory.words[i]);
+            fprintf(stdout, "\n");
+        fprintf(stdout,"\t  %d: %d",i,memory.words[i]);
         count++;
     } 
-    fprintf(myo," ...\n");
+    fprintf(stdout," ...\n");
 }
 
 
