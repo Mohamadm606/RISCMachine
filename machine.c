@@ -10,7 +10,6 @@ int GPR[32];
 long LO;
 long HI;
 int PC;
-FILE* myp;
 
 static union mem_u {
      byte_type bytes[MEMORY_SIZE_IN_BYTES];
@@ -54,14 +53,11 @@ int main(int argc,char* argv[])
         memory.words[i] = bof_read_word(bf);
     }
 
-    // make
-    // make asm
-    // ./asm vm_test3.asm
-    // ./vm vm_test3.bof
 
     int length = header.text_length;
     if (dashp)
     {
+
         fprintf(stdout,"Addr Instruction\n");
 
         while (PC < length)
@@ -71,22 +67,10 @@ int main(int argc,char* argv[])
         }
         print_data(header, stdout);
 
-        exit(0);
+        fclose(stdout);
+        exit(0);    
     }
-    myp = fopen("out.myp", "w");
-
-    fprintf(myp,"Addr Instruction\n");
-
-    while (PC < length)
-    {
-        print_instr(myp);
-        PC+=4;
-    }
-    print_data(header, myp);
     PC = header.text_start_address;
-
-    fclose(myp);
-
     int flag = 1;
     long mulNum = 0;
     while (1)
@@ -104,7 +88,7 @@ int main(int argc,char* argv[])
             print_reg();
             print_data(header, stdout);
             print_stack(header);
-            fprintf(stdout,"==> addr:\t");
+            fprintf(stdout,"==> addr:");
             print_instr(stdout);
         }
 
@@ -161,6 +145,7 @@ int main(int argc,char* argv[])
             case(syscall_instr_type):
                 switch(instruction.syscall.code) { 
                     case(exit_sc):
+                        fprintf(stdout,"\n");
                         exit(0);
                         break;
                     case(print_str_sc)://PSTR
@@ -168,7 +153,6 @@ int main(int argc,char* argv[])
                         break;
                     case(print_char_sc)://PCH
                         GPR[2] = fputc(GPR[4], stdout);
-                        fprintf(stdout, "= %d =", GPR[4]);
                         break;
                     case(read_char_sc)://RCH
                         GPR[4] = fgetc(stdin);
@@ -220,7 +204,7 @@ int main(int argc,char* argv[])
                                 PC = PC + machine_types_formOffset(instruction.immed.immed);
                         break;
                     case(LBU_O):
-                        GPR[instruction.immed.rt] = machine_types_zeroExt(memory.bytes[GPR[instruction.immed.rs] + machine_types_formOffset(instruction.immed.immed)]);
+                        GPR[instruction.immed.rt] = (unsigned short)machine_types_zeroExt((unsigned short)memory.words[(unsigned short)GPR[instruction.immed.rs] + (unsigned short)machine_types_formOffset(instruction.immed.immed)]);
                         break;
                     case(LW_O):
                         GPR[instruction.immed.rt] = memory.words[GPR[instruction.immed.rs]+machine_types_formOffset(instruction.immed.immed)];
@@ -250,26 +234,23 @@ int main(int argc,char* argv[])
                 break;
         };
     }
-
 }
 void print_reg() {
-    fprintf(stdout, "\tPC: %d\t", PC);
+    fprintf(stdout, "      PC: %-3d", PC);
 
     if (HI || LO)
     {
-        fprintf(stdout, "HI: %d\t LO: %d\n",(int)HI, (int)LO);
+        fprintf(stdout, "\tHI: %d\t LO: %d",(int)HI, (int)LO);
     }
-    else
-        fprintf(stdout, "\n");
 
     fprintf(stdout, "\n");
 
     for (int i = 0; i < NUM_REGISTERS; i++)
     {
-        if (i % 6 == 0)
+        if (i % 6 == 0 && i!= 0)
             fprintf(stdout, "\n");
         
-        fprintf(stdout, "GPR[%s]: %d\t", regname_get(i), GPR[i]);
+        fprintf(stdout, "GPR[%-3s]: %-12d", regname_get(i), GPR[i]);
     }
     
     fprintf(stdout, "\n");
@@ -381,28 +362,47 @@ void print_instr(FILE* file)
 
 void print_data(BOFHeader header, FILE* file){
     int count = 0;
+    int dots = 0;
     for(int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=4)
     {
         if (count % 5 == 0 && count != 0)
             fprintf(file, "\n");
-        fprintf(file,"\t  %d: %d",i,memory.words[i]);
-        count++;
+        if(memory.words[i]!=0){
+            fprintf(file,"\t  %d: %d",i,memory.words[i]);
+            count++;
+        }else if (dots == 0)
+        {
+            dots = 1;
+            fprintf(file,"    %d: %d ...",i,memory.words[i]);
+            count++;
+        }
+        
     }
-    fprintf(file," ...\n");
+    fprintf(stdout,"\n");
 }
 
 
 void print_stack(BOFHeader)
 {
     int count = 0;
+    int dots = 0;
     for(int i = GPR[SP];i <= GPR[FP]; i+=4)
     {
-        if (count % 5 == 0 && count != 0)
+        if (count % 5 == 0 && count != 0){
             fprintf(stdout, "\n");
-        fprintf(stdout,"\t  %d: %d",i,memory.words[i]);
-        count++;
+        }
+        if(memory.words[i] != 0){
+            fprintf(stdout,"\t  %d: %d",i,memory.words[i]);
+            count++;
+            dots = 0;
+        }else if(dots == 0)
+        {
+            dots = 1;
+            fprintf(stdout,"    %d: %d ...",i,memory.words[i]);
+            count++;
+        }
     } 
-    fprintf(stdout," ...\n");
+    fprintf(stdout,"\n");
 }
 
 
