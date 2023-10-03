@@ -6,26 +6,29 @@
 #include "regname.h"
 #define MEMORY_SIZE_IN_BYTES (65536 - BYTES_PER_WORD)
 #define MEMORY_SIZE_IN_WORDS (MEMORY_SIZE_IN_BYTES / BYTES_PER_WORD)
+
 int GPR[32];
 long LO;
 long HI;
 int PC;
-static union mem_u {
+static union mem_u {  //used to store memory and can be viewed in several different ways with union
      byte_type bytes[MEMORY_SIZE_IN_BYTES];
      word_type words[MEMORY_SIZE_IN_WORDS];
      bin_instr_t instrs[MEMORY_SIZE_IN_WORDS];
 }memory;
 
-void print_instr(FILE* file);
-void initialize(BOFHeader header);
-void print_data(BOFHeader header, FILE* file);
-void print_stack();
-void print_reg();
-int enforce_invarients();
+void print_instr(FILE* file);//prints a single instruction
+void initialize(BOFHeader header);//initializes values
+void print_data(BOFHeader header, FILE* file); //prints data section
+void print_stack();//prints stack called each time instruction called
+void print_reg();//prints register called each time instruction called
+int enforce_invarients();//makes sure rules arnt broken
 int main(int argc,char* argv[])
 {
+     //for bof whihc is input
     BOFFILE bf;
     
+    //for -p flag
     int dashp = 0;
     if (argc < 3)
     {
@@ -36,30 +39,35 @@ int main(int argc,char* argv[])
         dashp = 1;
         bf = bof_read_open(argv[2]);
     }
-
+    //extracts bof header from bof
     BOFHeader header = bof_read_header(bf);
 
     initialize(header);
 
+    //single instruction
     bin_instr_t instruction;
 
+    //reads in instructions
     for(int i = 0; i < (header.text_length/BYTES_PER_WORD);i++){
         instruction = instruction_read(bf);
         memory.instrs[i] = instruction;
     }
     
+    //reads in data section
     for(int i = header.data_start_address; i < (header.data_length)+header.data_start_address; i+=BYTES_PER_WORD) {
         memory.words[i] = bof_read_word(bf);
     }
 
-
+    //uses to loop through all instructions
     int length = header.text_length;
+
+    //if -p flag it will print instructions to stdout and exit
     if (dashp)
     {
 
         fprintf(stdout,"Addr Instruction\n");
 
-        while (PC < length)
+        while (PC < length)//loop over all instructions
         {
             print_instr(stdout);
             PC+=BYTES_PER_WORD;
@@ -69,9 +77,12 @@ int main(int argc,char* argv[])
         fclose(stdout);
         exit(0);    
     }
-    PC = header.text_start_address;
-    int flag = 1;
+    PC = header.text_start_address;//make sure Pc is set to beggining again
+    int flag = 1;//used for turning on and off tracing
+    
     long mulNum = 0;
+
+    
     while (1)
     {   
         // enforcing required register stuff
@@ -82,7 +93,7 @@ int main(int argc,char* argv[])
         instr_type temp = instruction_type(instruction);
 
 
-        if (flag)
+        if (flag)//if tracing on trace.
         {
             print_reg();
             print_data(header, stdout);
@@ -91,9 +102,9 @@ int main(int argc,char* argv[])
             print_instr(stdout);
         }
 
-        PC += BYTES_PER_WORD;
-        switch(temp){
-            case(reg_instr_type):
+        PC += BYTES_PER_WORD;//next instruction
+        switch(temp){//switch on instruction type
+            case(reg_instr_type)://register type instructions
                 switch(instruction.reg.func){
                     case(ADD_F):
                         GPR[instruction.reg.rd] = GPR[instruction.reg.rs] + GPR[instruction.reg.rt];
@@ -141,7 +152,7 @@ int main(int argc,char* argv[])
                         break;
                 }
                 break;
-            case(syscall_instr_type):
+            case(syscall_instr_type)://syscall instructions
                 switch(instruction.syscall.code) { 
                     case(exit_sc):
                         fprintf(stdout,"\n");
@@ -234,6 +245,9 @@ int main(int argc,char* argv[])
         };
     }
 }
+
+// method prints the current state of GPRs and special
+// special registers
 void print_reg() {
     fprintf(stdout, "      PC: %-3d", PC);
 
@@ -255,7 +269,9 @@ void print_reg() {
     fprintf(stdout, "\n");
 }
 
-int enforce_invarients(){
+// method returns a 1 if invarient cases are asserted
+// returns a 0 otherwise
+int enforce_invarients() {
     if (PC % BYTES_PER_WORD != 0 || GPR[GP] % BYTES_PER_WORD != 0 || GPR[SP] % BYTES_PER_WORD != 0
         || GPR[SP] % BYTES_PER_WORD != 0 || 0 > GPR[GP] || GPR[GP] >= GPR[SP] || GPR[SP] > GPR[FP]
         || GPR[FP] >= MEMORY_SIZE_IN_BYTES || 0 > PC || PC >= MEMORY_SIZE_IN_BYTES || GPR[0] != 0)
@@ -264,11 +280,15 @@ int enforce_invarients(){
         return 1;
 
 }
+
+// takes in a file pointer and prints the instructions
+// saved in the memory
 void print_instr(FILE* file)
 {
         bin_instr_t instruction = memory.instrs[PC/BYTES_PER_WORD];
         fprintf(file,"%4d ",PC);
         
+        // switch case to find the type of instuction and print the correct information
         switch (instruction_type(instruction))
         {
            case(reg_instr_type):
@@ -358,11 +378,12 @@ void print_instr(FILE* file)
     return;
 }
 
-
+// takes in the BOF header file and a file pointer as a parameter
+// prints the data section of the code based on bytes_per_word
 void print_data(BOFHeader header, FILE* file){
     int count = 0;
     int dots = 0;
-    for(int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=BYTES_PER_WORD)
+    for (int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=BYTES_PER_WORD)
     {
         if (count % 5 == 0 && count != 0)
             fprintf(file, "\n");
@@ -381,10 +402,13 @@ void print_data(BOFHeader header, FILE* file){
 }
 
 
+// prints the data in stack memory in correct format
 void print_stack()
 {
     int count = 0;
     int dots = 0;
+    
+    // loops through stack mem based on bytes_per_word
     for(int i = GPR[SP];i <= GPR[FP]; i+=BYTES_PER_WORD)
     {
         if (count % 5 == 0 && count != 0){
@@ -404,7 +428,8 @@ void print_stack()
     fprintf(stdout,"\n");
 }
 
-
+// takes in the BOF header as a parameter
+// initializes global variables and GPR based on header
 void initialize(BOFHeader header) {
 
     for (int i = 0; i < NUM_REGISTERS; i++)
