@@ -10,7 +10,6 @@ int GPR[32];
 long LO;
 long HI;
 int PC;
-
 static union mem_u {
      byte_type bytes[MEMORY_SIZE_IN_BYTES];
      word_type words[MEMORY_SIZE_IN_WORDS];
@@ -20,7 +19,7 @@ static union mem_u {
 void print_instr(FILE* file);
 void initialize(BOFHeader header);
 void print_data(BOFHeader header, FILE* file);
-void print_stack(BOFHeader header);
+void print_stack();
 void print_reg();
 int enforce_invarients();
 int main(int argc,char* argv[])
@@ -44,12 +43,12 @@ int main(int argc,char* argv[])
 
     bin_instr_t instruction;
 
-    for(int i = 0; i < (header.text_length/4);i++){
+    for(int i = 0; i < (header.text_length/BYTES_PER_WORD);i++){
         instruction = instruction_read(bf);
         memory.instrs[i] = instruction;
     }
     
-    for(int i = header.data_start_address; i < (header.data_length)+header.data_start_address; i+=4) {
+    for(int i = header.data_start_address; i < (header.data_length)+header.data_start_address; i+=BYTES_PER_WORD) {
         memory.words[i] = bof_read_word(bf);
     }
 
@@ -63,7 +62,7 @@ int main(int argc,char* argv[])
         while (PC < length)
         {
             print_instr(stdout);
-            PC+=4;
+            PC+=BYTES_PER_WORD;
         }
         print_data(header, stdout);
 
@@ -79,7 +78,7 @@ int main(int argc,char* argv[])
         if (!enforce_invarients())
             bail_with_error("test: uh oh");
         
-        instruction = memory.instrs[PC/4];
+        instruction = memory.instrs[PC/BYTES_PER_WORD];
         instr_type temp = instruction_type(instruction);
 
 
@@ -87,12 +86,12 @@ int main(int argc,char* argv[])
         {
             print_reg();
             print_data(header, stdout);
-            print_stack(header);
+            print_stack();
             fprintf(stdout,"==> addr:");
             print_instr(stdout);
         }
 
-        PC += 4;
+        PC += BYTES_PER_WORD;
         switch(temp){
             case(reg_instr_type):
                 switch(instruction.reg.func){
@@ -267,7 +266,7 @@ int enforce_invarients(){
 }
 void print_instr(FILE* file)
 {
-        bin_instr_t instruction = memory.instrs[PC/4];
+        bin_instr_t instruction = memory.instrs[PC/BYTES_PER_WORD];
         fprintf(file,"%4d ",PC);
         
         switch (instruction_type(instruction))
@@ -363,7 +362,7 @@ void print_instr(FILE* file)
 void print_data(BOFHeader header, FILE* file){
     int count = 0;
     int dots = 0;
-    for(int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=4)
+    for(int i = header.data_start_address; i <= ((header.data_length)+header.data_start_address); i+=BYTES_PER_WORD)
     {
         if (count % 5 == 0 && count != 0)
             fprintf(file, "\n");
@@ -382,11 +381,11 @@ void print_data(BOFHeader header, FILE* file){
 }
 
 
-void print_stack(BOFHeader)
+void print_stack()
 {
     int count = 0;
     int dots = 0;
-    for(int i = GPR[SP];i <= GPR[FP]; i+=4)
+    for(int i = GPR[SP];i <= GPR[FP]; i+=BYTES_PER_WORD)
     {
         if (count % 5 == 0 && count != 0){
             fprintf(stdout, "\n");
